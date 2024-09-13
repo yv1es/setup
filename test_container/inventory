@@ -1,0 +1,1 @@
+127.0.0.1 ansible_user=user ansible_port=2222 ansible_private_key_file=testkey ansible_become_password="userpass"

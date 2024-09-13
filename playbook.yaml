@@ -1,0 +1,137 @@
+---
+- name: Setup Tools and Configs
+  hosts: all
+  vars:
+    local_home_dir: "/home/{{ ansible_user }}"
+  tasks:
+
+    - name: Update and upgrade apt packages
+      apt:
+        upgrade: yes
+        update_cache: yes
+        cache_valid_time: 86400 #One day
+        autoremove: yes
+      become: yes
+
+    - name: Install git and pip
+      apt:
+        name:
+          - sudo
+          - git
+          - python3-pip
+        state: present
+      become: yes
+
+    - name: Install and upgrade pip
+      pip:
+        name: 
+          - pip
+        extra_args: --upgrade
+        executable: pip3
+
+    - name: Install python packages
+      pip:
+        name: 
+          - pexpect
+        executable: pip3
+
+
+
+    # Configs
+    # ---------------------------------------------------------------
+    - name: Copy configuration files
+      copy:
+        src: configs/
+        dest: '{{ local_home_dir }}/'
+        owner: '{{ ansible_user }}'
+        group: '{{ ansible_user }}'
+        mode: '0644'
+
+
+
+    # Tmux 
+    # ---------------------------------------------------------------
+    - name: Ensure Tmux is installed
+      apt:
+        name: 
+          - tmux
+          - xsel
+        state: present
+      become: yes
+
+    - name: Ensure .tmux/plugins directory exists
+      file:
+        path: "{{ ansible_user_dir }}/.tmux/plugins"
+        state: directory
+        mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Clone Tmux Plugin Manager (TPM) repository
+      git:
+        repo: 'https://github.com/tmux-plugins/tpm'
+        dest: "{{ ansible_user_dir }}/.tmux/plugins/tpm"
+        clone: yes
+        version: master
+
+    - name: Install tmux plugins
+      command: '{{ local_home_dir }}/.tmux/plugins/tpm/bin/install_plugins'
+      become_user: "{{ ansible_env.USER }}"
+
+
+
+    # Fzf
+    # ---------------------------------------------------------------
+    - name: Clone fzf repository
+      git:
+        repo: 'https://github.com/junegunn/fzf.git'
+        dest: '{{ local_home_dir }}/.fzf'
+        clone: yes
+        version: master
+
+    - name: Install fzf
+      expect:
+        command: '{{ local_home_dir }}/.fzf/install'
+        responses:
+          'Do you want to enable fuzzy auto-completion\?': 'y'
+          'Do you want to enable key bindings\?': 'y'
+          'Do you want to update your shell configuration files\?': 'y'
+        echo: yes
+      args:
+        creates: '{{ local_home_dir }}/.fzf/bin/fzf'
+
+
+
+    # Vim 
+    # ---------------------------------------------------------------
+    - name: Install vim
+      apt:
+        name: 
+          - vim-gtk3
+        state: present
+      become: yes
+
+    - name: Ensure .vim/autoload directory exists
+      file:
+        path: "{{ ansible_user_dir }}/.vim/autoload"
+        state: directory
+        mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Install vim-plug
+      get_url:
+        url: https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+        dest: "{{ local_home_dir }}/.vim/autoload/plug.vim"
+        mode: '0644'
+
+    - name: Install vim-tmux-navigator 
+      git:
+        repo: 'https://github.com/christoomey/vim-tmux-navigator.git'
+        dest: '{{ local_home_dir }}/.vim/pack/plugins/start/vim-tmux-navigator'
+        clone: yes
+        version: master
+
+    - name: Install vim plugins
+      command: vim -c 'PlugInstall | q' -c 'q'
+      become_user: "{{ ansible_env.USER }}"
